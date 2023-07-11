@@ -1,0 +1,134 @@
+﻿#pragma kernel Convolve
+#pragma kernel GenerateGaussian
+
+Texture2D<float4> Filter;
+RWTexture2D<float4> Target;
+
+float Factor;
+uint2 TargetSize;
+uint2 ImageSize;
+float4 Sigma;
+
+
+float2 cmul(float2 a, float2 b)
+{
+    return float2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
+}
+
+float2 cmuli(float2 a)
+{
+    return float2(- a.y, a.x);
+}
+
+float2 cconj(float2 a)
+{
+    return float2(a.x, -a.y);
+}
+
+float4 cconj(float4 a)
+{
+    return float4(a.x, -a.y, a.z, -a.w);
+}
+
+static const float PI = 3.14159265f;
+
+struct decode_out
+{
+    float4 X1;
+    float4 Y1;
+    float4 X2;
+    float4 Y2;
+};
+
+decode_out real_fft_freq_decode(float4 z1, float4 z2)
+{
+    float4 cz1 = cconj(z1);
+    float4 cz2 = cconj(z2);
+    decode_out o;
+    o.X1 = float4(0.5 * (z1.xy + cz2.xy),
+                      cmul(float2(0, -0.5), (z1.xy - cz2.xy)));
+    o.Y1 = float4(0.5 * (z1.zw + cz2.zw),
+                      cmul(float2(0, -0.5), (z1.zw - cz2.zw)));
+    o.X2 = float4(0.5 * (z2.xy + cz1.xy),
+                      cmul(float2(0, -0.5), (z2.xy - cz1.xy)));
+    o.Y2 = float4(0.5 * (z2.zw + cz1.zw),
+                      cmul(float2(0, -0.5), (z2.zw - cz1.zw)));
+    return o;
+}
+
+struct encode_out
+{
+    float4 Z1;
+    float4 Z2;
+};
+
+encode_out real_fft_freq_encode(decode_out i)
+{
+    encode_out o;
+    o.Z1 = float4(i.X1.xy + cmuli(i.X1.zw), i.Y1.xy + cmuli(i.Y1.zw));
+    o.Z2 = float4(i.X2.xy + cmuli(i.X2.zw), i.Y2.xy + cmuli(i.Y2.zw));
+    return o;
+}
+
+decode_out multi_convolve(decode_out a, decode_out b)
+{
+    decode_out o;
+    o.X1 = float4(cmul(a.X1.xy, b.X1.xy), cmul(a.X1.zw, b.X1.zw));
+    o.Y1 = float4(cmul(a.Y1.xy, b.Y1.xy), cmul(a.Y1.zw, b.Y1.zw));
+    o.X2 = float4(cmul(a.X2.xy, b.X2.xy), cmul(a.X2.zw, b.X2.zw));
+    o.Y2 = float4(cmul(a.Y2.xy, b.Y2.xy), cmul(a.Y2.zw, b.Y2.zw));
+    return o;
+}
+
+
+
+[numthreads(512, 1, 1)]
+void Convolve(uint3 id: SV_DispatchThreadID)
+{
+    //decoding
+    uint2 rev_id;
+    rev_id.x = TargetSize.x - id.x;
+    rev_id.y = TargetSize.y - id.y;
+    if (rev_id.x == TargetSize.x) rev_id.x = 0;
+    if (rev_id.y == TargetSize.y) rev_id.y = 0;
+
+    decode_out target_decode = real_fft_freq_decode(Target[id.xy], Target[rev_id]);
+    
+    decode_out filter_decode = real_fft_freq_decode(Filter[id.xy], Filter[rev_id]);
+
+    //convolve with filter
+    target_decode = multi_convolve(target_decode, filter_decode);
+
+    //encoding
+    encode_out target_encode = real_fft_freq_encode(target_decode);
+
+    Target[id.xy] = target_encode.Z1;
+    Target[rev_id] = target_encode.Z2;
+    
+    // float4 v1 = Target[id.xy];
+    // float4 v2 = Filter[id.xy];
+    // Target[id.xy] = float4(cmul(v1.xy, v2.xy), cmul(v1.zw, v2.zw));
+}
+
+
+[numthreads(16, 16, 1)]
+void GenerateGaussian(uint3 id: SV_DispatchThreadID)
+{
+    float x_d = min(id.x, TargetSize.x - id.x) / (float)TargetSize.x * ImageSize.x;
+    float y_d = min(id.y, TargetSize.y - id.y) / (float)TargetSize.y * ImageSize.y;
+    // float sigma_xy = Sigma.x * Sigma.y;
+    // float a = 2 * PI * sigma_xy;
+    // float x_s = x_d * Sigma.x;
+    // float x_s2 = x_s * x_s;
+    // float y_s = y_d * Sigma.y;
+    // float y_s2 = y_s * y_s;
+    // float b = -0.5 * (x_s2 + y_s2) / (sigma_xy * sigma_xy);
+    // float var = exp(b) / a;
+    x_d *= Sigma.x;
+    y_d *= Sigma.y;
+
+    float var = exp(-0.5 * (x_d * x_d + y_d * y_d) + 0.5);
+    var *= Factor;
+    var = clamp(var, 0, Factor);
+    Target[id.xy] = float4(var, 0, var, 0);
+}
