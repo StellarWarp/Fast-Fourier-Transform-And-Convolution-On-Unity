@@ -1,15 +1,25 @@
 # High Performance Convolution Bloom On Unity
 
-This project implements a high-quality bloom effect using convolution techniques combined with Fast Fourier Transform (FFT). It provides customizable bloom effects with optimized performance, making it suitable for real-time rendering scenarios that demand high-quality post-processing.
+This project implements a high-quality bloom effect using Fast Fourier Transform (FFT) convolution. It provides customizable bloom effects with optimized performance.
+
+Unity Version: 2022.3.8f1c1
 
 
-Blog: 
+Blog: -
+
+![bloomsameple1](https://cdn.jsdelivr.net/gh/StellarWarp/StellarWarp.github.io@main/img/bloomsameple1.png)
+
+![bloomsample2](https://cdn.jsdelivr.net/gh/StellarWarp/StellarWarp.github.io@main/img/bloomsample2.png)
 
 ## Convolution Benchmark
 
 The performance testing of FFT was conducted using the Unity Profiler, recording GPU Profiler timings.
 
-The testing process involved executing $20$ FFTs and $20$ IFFTs per frame, totaling $40$ two-dimensional transforms ($40 \times 2$ Dispatch), and calculating the average time for FFT + IFFT. Read/Write Texture format ARGBHalf. Device: NVIDIA GeForce MX450.
+The testing process involved executing 20 convolution per frame,  and calculating the average time for FFT + IFFT. 
+
+Read/Write Texture format `ARGBHalf`. 
+
+Device: `NVIDIA GeForce MX450`.
 
 ### Dispatch Merge Performance Comparison
 
@@ -41,7 +51,7 @@ In cases where "inplace !" is used, padding optimization cannot be performed dur
 | 256x256   | 16,16 outplace           | Gray-scale | 0.041                       | 0.021                           | 0.061                    | -     |
 | 256x256   | 16,16 outplace & inplace | 4-Channel  | 0.033                       | 0.050                           | 0.083                    | -     |
 
-![dispatch merge](C:\Users\Estelle\source\article\convolution bloom\dispatch merge.png)
+![dispatch merge](https://cdn.jsdelivr.net/gh/StellarWarp/StellarWarp.github.io@main/img/dispatch%20merge.png)
 
 ### Common Configuration
 
@@ -69,6 +79,7 @@ Below are performance test results for screen ratios closer to rectangular shape
 | 2048x1024 | 4-Channel  | 2.891                   | 2.575                                             | 89%    |
 | 2048x1296 | Gray-scale | 2.612                   | 2.216                                             | 85%    |
 
+Note: The performance of Unity default bloom is 0.164ms on my device.
 ![convolution pref](https://cdn.jsdelivr.net/gh/StellarWarp/StellarWarp.github.io@main/img/convolution%20pref.png)
 
 
