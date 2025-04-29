@@ -7,7 +7,7 @@
 
 #pragma multi_compile_local __ VERTICAL
 #pragma multi_compile_local __ HAFT_PRECISION
-#pragma multi_compile_local SIZE_64 SIZE_32 SIZE_512 SIZE_1024 SIZE_729 SIZE_972 SIZE_1296 SIZE_1620
+#pragma multi_compile_local SIZE_256 SIZE_512 SIZE_1024 SIZE_729 SIZE_972 SIZE_1296 SIZE_1620 SIZE_2048
 #pragma multi_compile_local FORWARD INVERSE CONVOLUTION_1D CONVOLUTION_2D
 #pragma multi_compile_local __ INOUT_TARGET
 #pragma multi_compile_local __ INPLACE

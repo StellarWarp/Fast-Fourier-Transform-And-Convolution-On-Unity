@@ -205,7 +205,7 @@
                 float2 uv = i.uv;
                 if (_EnableRemap) uv = UV_Convert(i.uv);
                 float2 offset = (uv * 2 - 1);
-                float4 psf = PSF1(offset);
+                float4 psf = PSF2(offset);
 
                 if (_GrayScale)
                 {

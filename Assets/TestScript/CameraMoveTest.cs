@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace FFT
+namespace TestScript
 {
     public class CameraMoveTest : MonoBehaviour
     {
