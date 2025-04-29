@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0b2db86121404754db890f4c8dfe81b2, type: 3}
   m_Name: Bloom
   m_EditorClassIdentifier: 
-  active: 0
+  active: 1
   skipIterations:
     m_OverrideState: 0
     m_Value: 1
@@ -91,7 +91,7 @@ MonoBehaviour:
   - {fileID: 849379129802519247}
   - {fileID: -7893295128165547882}
   - {fileID: -7011558710299706105}
-  - {fileID: 2520965673810028104}
+  - {fileID: 3681020177842798427}
 --- !u!114 &849379129802519247
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -148,34 +148,165 @@ MonoBehaviour:
   isActive:
     m_OverrideState: 1
     m_Value: 1
+  convolutionSizeX:
+    m_OverrideState: 0
+    m_Value: 512
+  convolutionSizeY:
+    m_OverrideState: 0
+    m_Value: 512
   threshold:
     m_OverrideState: 1
     m_Value: 1.26
+  thresholdKnee:
+    m_OverrideState: 0
+    m_Value: 0.5
+  clampMax:
+    m_OverrideState: 0
+    m_Value: 1
   intensity:
     m_OverrideState: 1
     m_Value: 0.8
-  sigma:
-    m_OverrideState: 1
-    m_Value: {x: 5, y: 10}
   fftExtend:
     m_OverrideState: 1
     m_Value: {x: 0.1, y: 0.1}
-  updateKernel:
+  grayScaleConvolve:
+    m_OverrideState: 0
+    m_Value: 0
+  disableDispatchMergeOptimization:
+    m_OverrideState: 0
+    m_Value: 0
+  disableReadWriteOptimization:
+    m_OverrideState: 0
+    m_Value: 0
+  halfPrecisionTexture:
+    m_OverrideState: 0
+    m_Value: 1
+  updateOTF:
+    m_OverrideState: 0
+    m_Value: 0
+  generatePSF:
+    m_OverrideState: 0
+    m_Value: 0
+  imagePSF:
+    m_OverrideState: 0
+    m_Value: {fileID: 0}
+    dimension: 1
+  imagePSFScaler:
+    m_OverrideState: 0
+    m_Value: 1
+  imagePSFMinClamp:
+    m_OverrideState: 0
+    m_Value: 0
+  imagePSFMaxClamp:
+    m_OverrideState: 0
+    m_Value: 65472
+  imagePSFPow:
+    m_OverrideState: 0
+    m_Value: 1
+  showDownSampleResult:
+    m_OverrideState: 0
+    m_Value: 0
+  outPSF:
+    m_OverrideState: 0
+    m_Value: {fileID: 0}
+  outImageInput:
+    m_OverrideState: 0
+    m_Value: {fileID: 0}
+  outFFTInput:
+    m_OverrideState: 0
+    m_Value: {fileID: 0}
+  outBloomImage:
+    m_OverrideState: 0
+    m_Value: {fileID: 0}
+  outImageOutput:
+    m_OverrideState: 0
+    m_Value: {fileID: 0}
+--- !u!114 &3681020177842798427
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f871c9001bb043f4397c50202e142452, type: 3}
+  m_Name: ConvolutionBloom
+  m_EditorClassIdentifier: 
+  active: 1
+  isActive:
     m_OverrideState: 1
     m_Value: 1
-  kernel:
+  convolutionSizeX:
     m_OverrideState: 1
-    m_Value: {fileID: 2800000, guid: 4ee5730929d09794e98518d9d3853809, type: 3}
-    dimension: 1
-  kernelScaler:
+    m_Value: 512
+  convolutionSizeY:
     m_OverrideState: 1
-    m_Value: 1.3
-  kernelPow:
+    m_Value: 512
+  threshold:
     m_OverrideState: 1
-    m_Value: 16.67
-  kernelMinClamp:
+    m_Value: 18.82
+  thresholdKnee:
+    m_OverrideState: 1
+    m_Value: 0.48
+  clampMax:
+    m_OverrideState: 1
+    m_Value: 65472
+  intensity:
+    m_OverrideState: 1
+    m_Value: 1
+  fftExtend:
+    m_OverrideState: 1
+    m_Value: {x: 0.1, y: 0.1}
+  grayScaleConvolve:
     m_OverrideState: 1
     m_Value: 0
-  kernelMaxClamp:
+  disableDispatchMergeOptimization:
+    m_OverrideState: 1
+    m_Value: 0
+  disableReadWriteOptimization:
+    m_OverrideState: 1
+    m_Value: 0
+  halfPrecisionTexture:
     m_OverrideState: 1
     m_Value: 1
+  updateOTF:
+    m_OverrideState: 1
+    m_Value: 1
+  generatePSF:
+    m_OverrideState: 1
+    m_Value: 1
+  imagePSF:
+    m_OverrideState: 1
+    m_Value: {fileID: 2800000, guid: 018955879a86980459e4dd43770c2533, type: 3}
+    dimension: 1
+  imagePSFScaler:
+    m_OverrideState: 1
+    m_Value: 1000
+  imagePSFMinClamp:
+    m_OverrideState: 1
+    m_Value: 0
+  imagePSFMaxClamp:
+    m_OverrideState: 1
+    m_Value: 200
+  imagePSFPow:
+    m_OverrideState: 0
+    m_Value: 1
+  showDownSampleResult:
+    m_OverrideState: 0
+    m_Value: 1
+  outPSF:
+    m_OverrideState: 0
+    m_Value: {fileID: 0}
+  outImageInput:
+    m_OverrideState: 0
+    m_Value: {fileID: 0}
+  outFFTInput:
+    m_OverrideState: 0
+    m_Value: {fileID: 0}
+  outBloomImage:
+    m_OverrideState: 0
+    m_Value: {fileID: 2800000, guid: f6ca176a623705248878abeaf560002a, type: 3}
+  outImageOutput:
+    m_OverrideState: 0
+    m_Value: {fileID: 0}

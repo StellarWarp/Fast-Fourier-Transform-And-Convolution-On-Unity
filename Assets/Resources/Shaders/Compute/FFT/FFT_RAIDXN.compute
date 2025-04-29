@@ -1,0 +1,456 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+
+#pragma enable_d3d11_debug_symbols
+#pragma kernel FFT
+#pragma kernel Convolution1D
+#pragma kernel Convolution2D
+
+#pragma multi_compile_local __ VERTICAL
+#pragma multi_compile_local __ HAFT_PRECISION
+#pragma multi_compile_local SIZE_64 SIZE_32 SIZE_512 SIZE_1024 SIZE_729 SIZE_972 SIZE_1296 SIZE_1620
+#pragma multi_compile_local FORWARD INVERSE CONVOLUTION_1D CONVOLUTION_2D
+#pragma multi_compile_local __ INOUT_TARGET
+#pragma multi_compile_local __ INPLACE
+#pragma multi_compile_local __ PADDING
+#pragma multi_compile_local __ THREAD_REMAP
+#pragma multi_compile_local __ SQRT_NORMALIZE
+#pragma multi_compile_local __ READ_BLOCK
+#pragma multi_compile_local __ WRITE_BLOCK
+#pragma multi_compile_local __ RW_SHIFT
+
+
+#include "fft_config.hlsl"
+
+#include "complex_math.hlsl"
+
+#include "p2_pass.hlsl"
+
+#include "sub_pass.hlsl"
+
+#include "rp2_pass.hlsl"
+
+#include "rn_pass.hlsl"
+
+#include "rpn_pass.hlsl"
+
+#ifdef EX_PASS_DEC
+EX_PASS_DEC
+#endif
+
+
+
+[numthreads(MAX_S, 1, 1)]
+void FFT(uint3 id : SV_DispatchThreadID)
+{
+	#if defined FORWARD || defined INVERSE
+	#ifdef DEBUG_CONV_ONLY
+	return;
+	#endif
+	#ifndef INPLACE
+    
+    const uint i = id.x;
+    uint2 index[MIN_RADIX];
+    uint r;
+
+    [unroll(MIN_RADIX)]
+    for (r = 0; r < MIN_RADIX; r++)
+    {
+	#ifdef VERTICAL
+        index[r] = id.yx + uint2(0, r * MAX_S);
+	#else
+        index[r] = id.xy + uint2(r * MAX_S, 0);
+	#endif
+    }
+
+    bool wt = 0;
+	[unroll(MIN_RADIX)]
+    for (r = 0; r < MIN_RADIX; r++)
+        buffer[wt][index_transform(i + r * MAX_S)] = read_source(index[r]) INPUT_SCALE;
+	wt = !wt;
+    GroupMemoryBarrierWithGroupSync();
+
+    uint P = SIZE;
+	uint pass_counter;
+    FFT_PASSES
+
+    [unroll(MIN_RADIX)]
+    for (r = 0; r < MIN_RADIX; r++)
+    {
+        write_target(index[r], buffer[!wt][index_transform(i + r * MAX_S)] OUTPUT_SCALE);
+    }
+	
+	#else
+
+	const uint i = id.x;
+	uint2 index[MIN_RADIX];
+	//index remapping
+	uint idx_map[MIN_RADIX];
+	{
+		{
+			[unroll(MIN_RADIX)]
+			for (uint r = 0; r < MIN_RADIX; r++)
+			{
+				idx_map[r] = i + r * MAX_S;
+				#ifdef VERTICAL
+		   		index[r] = id.yx + uint2(0, r * MAX_S);
+				#else
+				index[r] = id.xy + uint2(r * MAX_S, 0);
+				#endif
+			}
+		}
+
+
+		const uint radix_seq RADIX_SEQ;
+		const uint N = SIZE;
+		uint P = 1;
+    	[unroll(PASSES_COUNT - 1)]
+		for (uint R_idx = PASSES_COUNT - 1; R_idx > 0; R_idx--)
+		{
+			uint R = radix_seq[R_idx];
+			[unroll(MIN_RADIX)]
+			for (uint r = 0; r < MIN_RADIX; r++)
+			{
+				shuffle_single_map(idx_map[r], N, R, P);
+			}
+			P *= R;
+		}
+	}
+	uint r;
+	#if 1
+	[unroll(MIN_RADIX)]
+	for (r = 0; r < MIN_RADIX; r++)
+		buffer[index_transform(idx_map[r])] = read_source(index[r]) INPUT_SCALE;
+	GroupMemoryBarrierWithGroupSync();
+	
+	uint P = SIZE;
+	uint pass_counter;
+	FFT_PASSES
+	
+	[unroll(MIN_RADIX)]
+	for (r = 0; r < MIN_RADIX; r++)
+		write_target(index[r], buffer[index_transform(i + r * MAX_S)] OUTPUT_SCALE);
+	#else
+	
+	[unroll(MIN_RADIX)]
+	for (r = 0; r < MIN_RADIX; r++)
+		buffer[index_transform(i + r * MAX_S)] = read_source(index[r]) INPUT_SCALE;
+	GroupMemoryBarrierWithGroupSync();
+	
+	uint P = 1;
+	uint pass_counter;
+	FFT_PASSES_REV
+	
+	[unroll(MIN_RADIX)]
+	for (r = 0; r < MIN_RADIX; r++)
+		write_target(index[r], buffer[index_transform(idx_map[r])] OUTPUT_SCALE);
+	#endif
+	#endif
+	#endif
+}
+
+#ifdef CONVOLUTION_1D
+#ifndef INPLACE
+void SpectrumMul(uint i, in uint2 index[MIN_RADIX], bool wt)
+{
+	[unroll(MIN_RADIX)]
+	for (uint r = 0; r < MIN_RADIX; r++)
+	{
+		uint idx = index_transform(i + r * MAX_S);
+		complex2 v1 = buffer[!wt][idx];
+		complex v = ConvKernelSpectrum[index[r]].xy;
+		complex2 v2 = complex2(v,v);
+		buffer[!wt][idx] = cmul(v1,v2) INVERSE_INPUT_SCALE;
+	}
+}
+#else
+void SpectrumMul(uint i, in uint2 index[MIN_RADIX])
+{
+	[unroll(MIN_RADIX)] 
+	for (uint r = 0; r < MIN_RADIX; r++)
+	{
+		uint idx = index_transform(i + r * MAX_S);
+		complex2 v1 = buffer[idx];
+		complex v = ConvKernelSpectrum[index[r]].xy;
+		complex2 v2 = complex2(v,v);
+		buffer[idx] = cmul(v1,v2) INVERSE_INPUT_SCALE;
+	}
+}
+#endif
+#endif
+
+
+[numthreads(MAX_S, 1, 1)]
+void Convolution1D(uint3 id : SV_DispatchThreadID)
+{
+	#ifdef CONVOLUTION_1D
+	#ifndef INPLACE
+    
+	const uint i = id.x;
+	uint2 index[MIN_RADIX];
+	uint r;
+
+	[unroll(MIN_RADIX)]
+	for (r = 0; r < MIN_RADIX; r++)
+	{
+		#ifdef VERTICAL
+		index[r] = id.yx + uint2(0, r * MAX_S);
+		#else
+		index[r] = id.xy + uint2(r * MAX_S, 0);
+		#endif
+	}
+
+	bool wt = 0;
+	[unroll(MIN_RADIX)]
+	for (r = 0; r < MIN_RADIX; r++)
+		buffer[wt][index_transform(i + r * MAX_S)] = read_source(index[r]) FORWARD_INPUT_SCALE;
+	wt = !wt;
+	GroupMemoryBarrierWithGroupSync();
+
+	uint P;
+	uint pass_counter;
+	is_inv = false;
+	P = SIZE;
+	FFT_PASSES
+
+	#ifdef FORWARD_OUTPUT_SCALE
+	[unroll(MIN_RADIX)]
+	for (r = 0; r < MIN_RADIX; r++)
+	{
+		uint idx = index_transform(i + r * MAX_S);
+		buffer[!wt][idx] = buffer[!wt][idx] FORWARD_OUTPUT_SCALE;
+	}
+	GroupMemoryBarrierWithGroupSync();
+	#endif
+
+	SpectrumMul(i,index,wt);
+	GroupMemoryBarrierWithGroupSync();
+	
+	is_inv = true;
+	P = SIZE;
+	FFT_PASSES
+
+	[unroll(MIN_RADIX)]
+	for (r = 0; r < MIN_RADIX; r++)
+	{
+		write_target(index[r], buffer[!wt][index_transform(i + r * MAX_S)] INVERSE_OUTPUT_SCALE);
+	}
+	
+	#else
+
+	const uint i = id.x;
+	uint2 index[MIN_RADIX];
+	//index remapping
+	uint idx_map[MIN_RADIX];
+	{
+		{
+			[unroll(MIN_RADIX)]
+			for (uint r = 0; r < MIN_RADIX; r++)
+			{
+				idx_map[r] = i + r * MAX_S;
+				#ifdef VERTICAL
+				index[r] = id.yx + uint2(0, r * MAX_S);
+				#else
+				index[r] = id.xy + uint2(r * MAX_S, 0);
+				#endif
+			}
+		}
+
+
+		const uint radix_seq RADIX_SEQ;
+		const uint N = SIZE;
+		uint P = 1;
+		[unroll(PASSES_COUNT - 1)]
+		for (uint R_idx = PASSES_COUNT - 1; R_idx > 0; R_idx--)
+		{
+			uint R = radix_seq[R_idx];
+			[unroll(MIN_RADIX)]
+			for (uint r = 0; r < MIN_RADIX; r++)
+			{
+				shuffle_single_map(idx_map[r], N, R, P);
+			}
+			P *= R;
+		}
+		[unroll(MIN_RADIX)]
+		for (uint r = 0; r < MIN_RADIX; r++)
+			buffer[index_transform(idx_map[r])] = read_source(index[r]) FORWARD_INPUT_SCALE;
+		// [unroll(MIN_RADIX)]
+		// for (uint r = 0; r < MIN_RADIX; r++)
+		// 	buffer[index_transform(i + r * MAX_S)] = read_source(index[r]) FORWARD_INPUT_SCALE;
+		GroupMemoryBarrierWithGroupSync();
+	}
+
+	uint P;
+	uint pass_counter;
+	P = SIZE;
+	FFT_PASSES
+	
+	uint r;
+	#ifdef FORWARD_OUTPUT_SCALE
+	[unroll(MIN_RADIX)]
+	for (r = 0; r < MIN_RADIX; r++)
+	{
+		uint idx = index_transform(i + r * MAX_S);
+		buffer[idx] = buffer[idx] FORWARD_OUTPUT_SCALE ;
+	}
+	GroupMemoryBarrierWithGroupSync();
+	#endif
+	
+	SpectrumMul(i,index);
+	GroupMemoryBarrierWithGroupSync();
+	
+	P = 1;
+	FFT_PASSES_REV
+
+	// [unroll(MIN_RADIX)]
+	// for (r = 0; r < MIN_RADIX; r++)
+	// {
+	// 	write_target(index[r], buffer[index_transform(i + r * MAX_S)] INVERSE_OUTPUT_SCALE);
+	// }
+	
+	
+	[unroll(MIN_RADIX)]
+	for (r = 0; r < MIN_RADIX; r++)
+		write_target(index[r], buffer[index_transform(idx_map[r])]);
+	#endif
+	#endif
+}
+
+
+// #define CONVOLUTION_2D
+// #define CONVOLUTION_1D
+
+uint2 TargetSize;
+
+#ifdef CONVOLUTION_2D
+
+#include "real_convolution.hlsl"
+
+static uint2 compute_size;
+
+void RealSpectrumMul(uint2 ij, in uint2 index[MIN_RADIX])
+{
+	[unroll(MIN_RADIX/2+1)]
+	for (uint r = 0; r < MIN_RADIX/2+1; r++)
+	{
+		uint idx = ij.x + r * MAX_S;
+		uint idy = ij.y;
+		if(idx > compute_size.x/2) return;
+		if((idx == 0||compute_size.x-idx == idx) && compute_size.y - idy < idy) continue;
+		
+		uint rev_idx = compute_size.x - idx;
+		if(idx == 0) rev_idx = 0;
+		uint2 xy = index[r];
+		uint2 rev_xy = TargetSize - xy;
+		if(xy.x == 0) rev_xy.x = 0;
+		if(xy.y == 0) rev_xy.y = 0;
+
+		bool same_line = compute_size.y - idy == idy || idy == 0;
+		
+		SymmetricMultiplication(
+			buffer_[thread_task][index_transform(idx)],
+			buffer_[same_line?thread_task:!thread_task][index_transform(rev_idx)],
+			ConvKernelSpectrum[xy],
+			ConvKernelSpectrum[rev_xy]
+			);
+	}
+
+	
+}
+#endif
+
+
+
+[numthreads(MAX_S, 1, 2)]
+void Convolution2D(uint3 id : SV_DispatchThreadID)
+{
+	#if defined CONVOLUTION_2D && defined INPLACE
+	#ifdef VERTICAL
+	compute_size = TargetSize.yx;
+	#else
+	compute_size = TargetSize.xy;
+	#endif
+	if(compute_size.y%2 == 1 && id.y == 0 && id.z == 1) active = false;
+	else active = true;
+	
+	const uint i = id.x;
+	thread_task = id.z;
+	const uint2 xy = id.z == 0? id.xy : uint2(id.x, id.y == 0? compute_size.y/2 : compute_size.y-id.y);
+	uint2 index[MIN_RADIX];
+	//index remapping
+	uint idx_map[MIN_RADIX];
+	ACTIVE_THREAD_BEGIN
+	{
+		{
+			[unroll(MIN_RADIX)]
+			for (uint r = 0; r < MIN_RADIX; r++)
+			{
+				idx_map[r] = i + r * MAX_S;
+				#ifdef VERTICAL
+				index[r] = xy.yx + uint2(0, r * MAX_S);
+				#else
+				index[r] = xy.xy + uint2(r * MAX_S, 0);
+				#endif
+			}
+		}
+		
+		const uint radix_seq RADIX_SEQ;
+		const uint N = SIZE;
+		uint P = 1;
+		[unroll(PASSES_COUNT - 1)]
+		for (uint R_idx = PASSES_COUNT - 1; R_idx > 0; R_idx--)
+		{
+			uint R = radix_seq[R_idx];
+			[unroll(MIN_RADIX)]
+			for (uint r = 0; r < MIN_RADIX; r++)
+			{
+				shuffle_single_map(idx_map[r], N, R, P);
+			}
+			P *= R;
+		}
+		[unroll(MIN_RADIX)]
+		for (uint r = 0; r < MIN_RADIX; r++)
+		{
+			buffer[index_transform(idx_map[r])] = read_source(index[r]) FORWARD_INPUT_SCALE;
+		}
+	}
+	ACTIVE_THREAD_END
+	
+	GroupMemoryBarrierWithGroupSync();
+
+	uint P;
+	uint pass_counter;
+	P = SIZE;
+	FFT_PASSES
+	
+	uint r;
+	ACTIVE_THREAD_BEGIN
+	#ifdef FORWARD_OUTPUT_SCALE
+	[unroll(MIN_RADIX)]
+	for (r = 0; r < MIN_RADIX; r++)
+	{
+		uint idx = index_transform(i + r * MAX_S);
+		buffer[idx] = buffer[idx] FORWARD_OUTPUT_SCALE ;
+	}
+	GroupMemoryBarrierWithGroupSync();
+	#endif
+	ACTIVE_THREAD_END
+	
+	
+	ACTIVE_THREAD_BEGIN
+	RealSpectrumMul(xy,index);
+	ACTIVE_THREAD_END
+	
+	GroupMemoryBarrierWithGroupSync();
+	
+	P = 1;
+	FFT_PASSES_REV
+
+	ACTIVE_THREAD_BEGIN
+	[unroll(MIN_RADIX)]
+	for (r = 0; r < MIN_RADIX; r++)
+	{
+		write_target(index[r], buffer[index_transform(idx_map[r])] INVERSE_OUTPUT_SCALE);
+	}
+	ACTIVE_THREAD_END
+	#endif
+}

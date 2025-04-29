@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: T 2
-  m_Shader: {fileID: 4800000, guid: 0aa02a0c02180344dbbc25abec47e763, type: 3}
+  m_Shader: {fileID: 4800000, guid: f17915c6249b9824fa1d8776df2d5276, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -28,6 +28,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints: []
-    m_Floats: []
+    m_Floats:
+    - _Scale: 0.01
     m_Colors: []
   m_BuildTextureStacks: []

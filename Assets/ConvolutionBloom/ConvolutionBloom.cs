@@ -1,34 +1,56 @@
 using System;
+using Rendering.FFT;
 using UnityEngine.Serialization;
 
 namespace UnityEngine.Rendering.Universal
 {
+    [Serializable]
+    public sealed class FFTSizeParameter : VolumeParameter<FFTKernel.FFTSize>
+    {
+        public FFTSizeParameter(FFTKernel.FFTSize value, bool overrideState = false) : base(value, overrideState) { }
+    }
+
     [Serializable, VolumeComponentMenu("Addition-Post-Processing/Convolution Bloom")]
     public sealed class ConvolutionBloom : VolumeComponent, IPostProcessComponent
     {
-        
-        public BoolParameter isActive = new BoolParameter(false);
-        [Tooltip("Filters out pixels under this level of brightness. Value is in gamma-space.")]
-        public FloatParameter threshold = new FloatParameter(0.8f);
-        [Tooltip("Strength of the bloom filter.")]
-        public FloatParameter intensity = new FloatParameter(0.8f);
-        public Vector2Parameter sigma = new Vector2Parameter(new Vector2(5,10));
-        public  Vector2Parameter fftExtend = new Vector2Parameter(new Vector2(0.1f, 0.1f));
-        [Tooltip("Update the parameters of the bloom filter.")]
-        public BoolParameter updateKernel = new BoolParameter(false);
-        public TextureParameter kernel = new TextureParameter(null);
-        public FloatParameter kernelScaler = new FloatParameter(1.0f);
-        public FloatParameter kernelPow = new FloatParameter(1f);
-        public FloatParameter kernelMinClamp = new FloatParameter(0.0f);
-        public FloatParameter kernelMaxClamp = new FloatParameter(1.0f);
-        
-        
-        
+        public BoolParameter isActive = new(false);
+
+        public FFTSizeParameter convolutionSizeX = new(FFTKernel.FFTSize.Size512);
+        public FFTSizeParameter convolutionSizeY = new(FFTKernel.FFTSize.Size512);
+
+        public FloatParameter threshold = new(0.8f);
+        public FloatParameter thresholdKnee = new(0.5f);
+        public FloatParameter clampMax = new(65472f);
+
+        public MinFloatParameter intensity = new(1.0f, 0);
+        public Vector2Parameter fftExtend = new(new Vector2(0.1f, 0.1f));
+        public BoolParameter grayScaleConvolve = new(false);
+        public BoolParameter disableDispatchMergeOptimization = new(false);
+        public BoolParameter disableReadWriteOptimization = new(false);
+
+        public BoolParameter halfPrecisionTexture = new(true);
+        public BoolParameter updateOTF = new(false);
+        public BoolParameter generatePSF = new(false);
+        public TextureParameter imagePSF = new(null);
+        public FloatParameter imagePSFScaler = new(1.0f);
+        public FloatParameter imagePSFMinClamp = new(0.0f);
+        public FloatParameter imagePSFMaxClamp = new(65472f);
+        public FloatParameter imagePSFPow = new(1f);
+
+
+        //debug
+        public BoolParameter showDownSampleResult = new(false);
+        public RenderTextureParameter outPSF = new(null);
+        public RenderTextureParameter outImageInput = new(null);
+        public RenderTextureParameter outFFTInput = new(null);
+        public RenderTextureParameter outBloomImage = new(null);
+        public RenderTextureParameter outImageOutput = new(null);
 
         public bool IsActive()
         {
             return isActive.value;
         }
+
         public bool IsTileCompatible()
         {
             return false;
@@ -36,7 +58,7 @@ namespace UnityEngine.Rendering.Universal
 
         public bool IsParamUpdated()
         {
-            return updateKernel.value;
+            return updateOTF.value;
         }
     }
 }
