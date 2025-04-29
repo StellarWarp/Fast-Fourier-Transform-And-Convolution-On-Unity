@@ -1,6 +1,6 @@
 # High Performance Convolution Bloom On Unity
 
-This project implements a high-quality bloom effect using Fast Fourier Transform (FFT) convolution. It provides customizable bloom effects with optimized performance.
+This project implements a high-quality bloom effect using Fast Fourier Transform (FFT) convolution, Providing customizable bloom effects with optimized performance. It achieves performance parity with Unreal Engine’s convolution bloom effect while offering greater flexibility and additional optimization options.
 
 Unity Version: 2022.3.8f1c1
 
@@ -13,9 +13,9 @@ Blog: -
 
 ## Convolution Benchmark
 
-The performance testing of FFT was conducted using the Unity Profiler, recording GPU Profiler timings.
+The performance testing of Convolution was conducted using the Unity Profiler, recording GPU Profiler timings.
 
-The testing process involved executing 20 convolution per frame,  and calculating the average time for FFT + IFFT. 
+The testing process involved executing 20 convolution per frame,  calculating the average time for per-convolution. Kernel FFT is not included. 
 
 Read/Write Texture format `ARGBHalf`. 
 
@@ -148,7 +148,7 @@ The table and figure below shows the performance test results for a $1024 \times
 
 ### 729x729
 
-下图为 $729\times 729$ 的测试结果 （$3^6 = 729$）
+（$3^6 = 729$）
 
 | Decomposition Strategy | Pass | Memory Access Strategy | Total Shader Time (ms) | Average FFT+IFFT Time (ms) | Average Single-Channel FFT Time (ms) | Average FFT+IFFT Computation Time (ms) | Normalized Time |
 | -------- | ---- | ------------ | ---------------- | --------------------- | ---------------------- | --------------------------- | -------------------- |
