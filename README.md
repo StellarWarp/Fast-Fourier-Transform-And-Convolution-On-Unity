@@ -5,7 +5,7 @@ This project implements a high-quality bloom effect using Fast Fourier Transform
 Unity Version: 2022.3.8f1c1
 
 
-Blog: -
+Blog: https://zhuanlan.zhihu.com/p/1900864922390343758
 
 ![bloomsameple1](https://cdn.jsdelivr.net/gh/StellarWarp/StellarWarp.github.io@main/img/bloomsameple1.png)
 
